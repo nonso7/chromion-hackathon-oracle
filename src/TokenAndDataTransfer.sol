@@ -10,8 +10,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ITokenSender} from "./interface/ITokenSender.sol";
 import {ITokenReceiver} from "./interface/ITokenReceiver.sol";
-
-abstract contract ProgrammableTokenTransfers is CCIPReceiver, AccessControl, ITokenSender, ITokenReceiver {
+contract TokenTransfers is CCIPReceiver, AccessControl, ITokenSender, ITokenReceiver {
     using SafeERC20 for IERC20;
 
     // Define roles for access control
@@ -86,6 +85,13 @@ abstract contract ProgrammableTokenTransfers is CCIPReceiver, AccessControl, ITo
         allowlistedSourceChainAndSender[_sourceChainSelector][_sender] = _allowed;
     }
 
+    function transferTokenFromSender(address _token, uint256 _amount) internal {
+        require(_token != address(0), "Token address cannot be zero");
+        require(_amount > 0, "Amount must be greater than zero");
+
+        IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+    }
+
     function _buildCCIPMessage(
         address _receiver,
         string calldata _text,
@@ -112,7 +118,7 @@ abstract contract ProgrammableTokenTransfers is CCIPReceiver, AccessControl, ITo
         });
     }
 
-    function sendMessageWithTokenToPayLink(
+    function sendMessageWithTokensPayLINK(
         uint64 _destinationChainSelector,
         address _receiver,
         string calldata _text,
@@ -122,6 +128,8 @@ abstract contract ProgrammableTokenTransfers is CCIPReceiver, AccessControl, ITo
         require(allowlistedDestinationChains[_destinationChainSelector], "Destination chain not allowlisted");
         require(_token != address(0), "Token address cannot be zero");
         require(_amount > 0, "Amount must be greater than zero");
+
+        transferTokenFromSender(_token, _amount);
 
         Client.EVM2AnyMessage memory message = _buildCCIPMessage(
             _receiver,
